@@ -1,0 +1,137 @@
+---
+title: "Statistical Inference Data Science Coursera"
+author: "Edmond Low"
+date: "18/10/2018"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, cache = TRUE)
+```
+
+# Overview of Part I - Simulation
+
+In the first part of this project we will investigate the exponential distribution in R and compare it with the Central Limit Theorem. The exponential distribution can be simulated in R with `rexp(n, lambda)` where lambda is the rate parameter. The mean of exponential distribution is 1/$\lambda$ and the standard deviation is also 1/$\lambda$. Set $\lambda$ = 0.2 for all of the simulations. We will investigate the distribution of averages of 40 exponentials. Note that we will need to do a thousand simulations.
+
+Illustrate via simulation and associated explanatory text the properties of the distribution of the mean of 40 exponentials. We will:
+
+1. Show the sample mean and compare it to the theoretical mean of the distribution.
+2. Show how variable the sample is (via variance) and compare it to the theoretical variance of the distribution.
+3. Show that the distribution is approximately normal.
+
+## Simulations
+
+```{r simulations}
+lambda <- 0.2; n <- 40; nsim <- 1000
+vec_init <- rep_len(NA,nsim)
+sim_data <- t(sapply(vec_init,FUN=function(x){rexp(n=n,rate=lambda)}))
+sim_means <- apply(sim_data,MARGIN=1,FUN=mean)
+str(sim_means)
+```
+
+From the above code, we generate the sample means of 1000 simulated samples and store them in a vector *sim_means*. The mean and sd of *sim_means* are:
+
+```{r disp}
+mean(sim_means); sd(sim_means)
+```
+
+Meanwhile, the Central Limit Theorem tells us that the sample means should be normally distributed with mean=1/$\lambda$ and sd=$\frac{1/\lambda}{\sqrt{40}}$. Thus, the theoretical mean and sd are:
+
+```{r theory}
+1/lambda; (1/lambda)/sqrt(n)
+```
+
+We observe that the mean and sd of the simulated sample means are close to the theoretical values under CLT. Next, we proceed to plot the distribution of the sample means.
+
+```{r plot}
+hist(sim_means,breaks=50,prob=T,main='Distribution of Sample Means',xlab='Sample_Mean Value')
+x <- seq(min(sim_means),max(sim_means),length.out=nsim)
+y <- dnorm(x,mean=1/lambda,sd=((1/lambda)/sqrt(n)))
+points(x,y,type='l')
+text(6.5,0.4,labels='~ N(5, 0.625)')
+```
+
+In the above code, we have also added an overlay of the theoretical Normal Distribution with mean 5 and sd 0.7906. We observe that the distribution of sample means coincide well with the Normal Distribution. This is the Central Limit Theorem in action.
+
+However, a common misrepresentation of the CLT is that 'everything is normal'. It is important to understand what the CLT is saying - that the distribution of **sample means** of i.i.d. random variables becomes that of a Standard Normal as sample size increases. This is not to be intrepreted as though all large samples of i.i.d. random variables are Normally distributed. As an illustration, we generate 1000 i.i.d. random exponential variables to observe its distribution.
+
+```{r illustration}
+expvec=rexp(1000,rate=lambda)
+hist(expvec,breaks=50,prob=T,main='Distribution of Exponential Random Samples',xlab='Sample Value')
+x <- seq(min(expvec),max(expvec),length.out=1000)
+y <- dexp(x,rate=lambda)
+points(x,y,type='l')
+text(12,0.05,labels='~ Exp(0.2)')
+```
+
+Likewise, we have included an overlay of the actual Exponential density curve in the plot. We observe that the random samples are exponentially distributed as expected.
+
+# Overview of Part II - Basic Inferential Data Analysis
+
+Now in the second portion of the project, we're going to analyze the ToothGrowth data in the R datasets package. The ToothGrowth data examines the effect of Vitamin C on Tooth Growth in Guinea Pigs. The length of odontoblasts `len` is measured in 60 guinea pigs, where each has received one of three dosage levels `dose` of vitamin C (0.5, 1, and 2 mg/day) by one of two delivery methods `supp` (orange juice or ascorbic acid) coded as OJ or VC respectively.
+
+1. Load the ToothGrowth data and perform some basic exploratory data analyses.
+2. Provide a basic summary of the data.
+3. Use confidence intervals and/or hypothesis tests to compare tooth growth by supp and dose. State any conclusions and the assumptions needed for these conclusions.
+
+Let us take a look at the ToothGrowth data in an exploratory plot.
+
+```{r explore}
+library(ggplot2)
+data("ToothGrowth")
+qplot(dose,len,data=ToothGrowth,color=supp)
+```
+
+We observe superficially that there seems to be a relationship between `dose` and `len`. Further, the delivery method `supp` seems to have an implication on `len`. Let's plot two charts, separately, to take a closer inspection of the relationships of the variables.
+
+```{r splitplots}
+qplot(as.factor(dose),len,geom='boxplot',data=ToothGrowth,facets=supp~.,xlab='dose',main='Plot of Length vs Dosage, split by Delivery Method')
+qplot(supp,len,data=ToothGrowth,geom='boxplot',facets=.~dose,main='Plot of Length vs Delivery Method, split by Dosage')
+```
+
+Looking at the plots, we intuitively guess that a higher Dosage increases the Length of odontoblasts in guinea pigs, and that using orange juice as the Delivery Method seemed to increase the length more than when ascorbic acid is used. In order to prove or disprove these, let's conduct some hypothesis tests.
+
+## Hypothesis Test 1
+
+Here, we try to validate our hypothesis that a higher `dose` leads to increased `len` in guinea pigs. We compare the means in `len` $\mu$~1~ and $\mu$~2~ for dosages of 0.5 and 2.0 respectively using a two-sample t-test.  Formally, H~0~ : $\mu$~1~ = $\mu$~2~ versus the one-sided alternative H~$\alpha$~ : $\mu$~1~ < $\mu$~2~
+
+For Ascorbic Acid:
+```{r hypothesis test 1}
+t.test(len~dose,alternative='less',paired=F,var.equal=T,data=ToothGrowth,subset=(supp=='VC' & dose %in% c(0.5,2)))
+```
+
+We observe that the p-value is small (<0.05) and the 95% confidence interval does not contain 0. Let us proceed to perform a test for Orange Juice:
+
+```{r}
+t.test(len~dose,alternative='less',paired=F,var.equal=T,data=ToothGrowth,subset=(supp=='OJ' & dose %in% c(0.5,2)))$p.value
+```
+
+Likewise, the p-value is small. Thus we reject H~0~ in favour of the alternative H~$\alpha$~ and conclude that a higher dosage `dose` indeed leads to increased length of odontoblasts `len` in guinea pigs.
+
+## Hypothesis Test 2
+
+Here, we try to validate our hypothesis that using orange juice as the Delivery Method `supp` is more effective at increasing `len` in guinea pigs compared to ascorbic acid. We compare the means in `len` $\mu$~1~ and $\mu$~2~ for orange juice and ascorbic acid respectively using a two-sample t-test.  Formally, H~0~ : $\mu$~1~ = $\mu$~2~ versus the one-sided alternative H~$\alpha$~ : $\mu$~1~ > $\mu$~2~
+
+For Dosage = 0.5 and 1.0 respectively, we have:
+
+```{r}
+t.test(len~supp,alternative='greater',paired=F,var.equal=T,data=ToothGrowth,subset=(dose==0.5))$p.value
+t.test(len~supp,alternative='greater',paired=F,var.equal=T,data=ToothGrowth,subset=(dose==1))$p.value
+```
+
+Since the p-value is small, we are confident that Orange Juice is more effective than Ascorbic Acid. Let us look at the two-sample t-test for Dosage = 2.0 :
+
+```{r}
+t.test(len~supp,alternative='greater',paired=F,var.equal=T,data=ToothGrowth,subset=(dose==2))
+```
+
+However, for Dosage = 2.0 we observe that p-value is large and 95% confidence interval contains 0. The means of both groups are also observed to be similar. As assumption here could be that a dosage of 2 mg/day causes the length of odontoblasts to peak and thus provides little differentiation in the delivery method.
+
+If we choose to believe the above assumption and instead focus our attention to the lower dosage groups, we would reject H~0~ in favour of the alternative H~$\alpha$~ and conclude that orange juice is a more effective delivery method `supp` that leads to increased length of odontoblasts `len` in guinea pigs.
+
+## Assumptions made
+
+It is important to highlight some of the assumptions we have made in conducting the above hypothesis tests. In all of the above two-sample t-tests, we have assumed that the compared groups have equal variances for `len`. In this exercise, this assumption has no material impact of the hypothesis testing as choosing in favour of unequal variances does not change the p-values significantly.
+
